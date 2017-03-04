@@ -1,0 +1,37 @@
+hash: 6e5320adc187effb9e19e7e316342e09df064c47da29e1d79a4d9b5e277fb68f
+updated: 2017-03-04T21:52:53.853976472+01:00
+imports:
+- name: github.com/cheggaaa/pb
+  version: d7e6ca3010b6f084d8056847f55d7f572f180678
+- name: github.com/fatih/color
+  version: 7824417a424b65227be8ac9b14d545a7f3e6c3f0
+- name: github.com/fujiwara/shapeio
+  version: 3a70334bb0701dce9abd39c13299279d2444c93f
+- name: github.com/juju/errors
+  version: 6f54ff6318409d31ff16261533ce2c8381a4fd5d
+- name: github.com/mattn/go-colorable
+  version: 5411d3eea5978e6cdc258b30de592b60df6aba96
+  repo: https://github.com/mattn/go-colorable
+- name: github.com/mattn/go-isatty
+  version: dda3de49cbfcec471bd7a70e6cc01fcc3ff90109
+  repo: https://github.com/mattn/go-isatty
+- name: github.com/mattn/go-runewidth
+  version: 14207d285c6c197daabb5c9793d63e7af9ab2d50
+- name: github.com/Sirupsen/logrus
+  version: 0208149b40d863d2c1a2f8fe5753096a9cf2cc8b
+- name: golang.org/x/net
+  version: f315505cf3349909cdf013ea56690da34e96a451
+  subpackages:
+  - context
+- name: golang.org/x/sys
+  version: e24f485414aeafb646f6fca458b0bf869c0880a1
+  repo: https://go.googlesource.com/sys
+  subpackages:
+  - unix
+- name: golang.org/x/time
+  version: 711ca1cb87636abec28122ef3bc6a77269d433f3
+  subpackages:
+  - rate
+- name: gopkg.in/urfave/cli.v2
+  version: 04b2f4ff79cf1fd71e138bafc67df8bbdb5b81c2
+testImports: []

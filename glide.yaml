@@ -1,0 +1,12 @@
+package: github.com/mdouchement/copier
+import:
+- package: github.com/Sirupsen/logrus
+  version: ~0.11.4
+- package: github.com/cheggaaa/pb
+  version: ~1.0.7
+- package: github.com/fatih/color
+  version: ~1.4.0
+- package: github.com/fujiwara/shapeio
+- package: github.com/juju/errors
+- package: gopkg.in/urfave/cli.v2
+  version: 04b2f4ff79cf1fd71e138bafc67df8bbdb5b81c2

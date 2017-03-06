@@ -122,6 +122,14 @@ func loadFromFile(filename string) ([]string, error) {
 	}
 	str := strings.TrimSpace(string(data))
 
+	paths := []string{}
+	for _, path := range strings.Split(str, util.Newline) {
+		if strings.HasPrefix(path, "#") {
+			continue
+		}
+		paths = append(paths, path)
+	}
+
 	return strings.Split(str, util.Newline), nil
 }
 

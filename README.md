@@ -47,6 +47,8 @@ copier -h
 copier list -o /tmp/tobecopied.txt ~/Documents
 ```
 
+Unwanted line can be commented by adding a `#` at the start of the line.
+
 - Start the copy
 
 ```sh

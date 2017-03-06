@@ -96,12 +96,12 @@ func Exists(path string) bool {
 }
 
 // Size return the size of the given path.
-func Size(path string) int64 {
+func Size(path string) (int64, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		fmt.Println("Unhandled error:", err)
+		return 0, err
 	}
-	return fi.Size()
+	return fi.Size(), nil
 }
 
 // MoreRecent checks if the dst file is more recent and have the same size of the src file.

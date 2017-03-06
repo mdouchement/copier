@@ -11,6 +11,7 @@ import (
 
 // An Exec copies files at a given ratelimit.
 type Exec struct {
+	size   int64
 	ctx    context.Context
 	reader *ProxyReader
 	From   string
@@ -38,17 +39,21 @@ func NewExecWithContext(ctx context.Context, from, to string, speed float64) *Ex
 
 // Execute starts the copy with a ratelimit.
 func (e *Exec) Execute() error {
+	s, err := Size(e.From)
+	if err != nil {
+		return errors.Annotate(err, "source")
+	}
+	e.size = s
+
 	MkdirAllWithFilename(e.To)
 
 	ok, err := MoreRecent(e.To, e.From)
 	if err != nil {
-		e.Ready <- struct{}{}
 		return err
 	}
 
 	if ok {
 		e.status = StatusAlreadyExist
-		e.Ready <- struct{}{}
 		return nil
 	}
 	if Exists(e.To) {
@@ -59,14 +64,12 @@ func (e *Exec) Execute() error {
 
 	r, err := os.Open(e.From)
 	if err != nil {
-		e.Ready <- struct{}{}
 		return errors.Annotate(err, "source")
 	}
 	defer r.Close()
 
 	w, err := os.Create(e.To)
 	if err != nil {
-		e.Ready <- struct{}{}
 		return errors.Annotate(err, "destination")
 	}
 	defer w.Close()
@@ -97,7 +100,7 @@ func (e *Exec) Name() string {
 
 // Size returns the file size.
 func (e *Exec) Size() int64 {
-	return Size(e.From)
+	return e.size
 }
 
 // Reader returns the file reader.

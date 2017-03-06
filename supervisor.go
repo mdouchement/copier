@@ -46,58 +46,118 @@ func NewSupervisor(paths []string, destination string) (*Supervisor, error) {
 	}, err
 }
 
+// Logger returns the Supervisor logger.
+func (s *Supervisor) Logger() *Logger {
+	return s.logger
+}
+
 // Execute runs the Supervisor copy batch.
 func (s *Supervisor) Execute() error {
-	errc := make(chan error)
-
 	for _, from := range s.FilePaths {
 		to := strings.Replace(from, s.base, s.Destination, 1)
 
-		ctx, cancel := context.WithTimeout(context.Background(), s.ExecTimeout)
-		defer cancel() // FIXME
-
-		cp := NewExecWithContext(ctx, from, to, s.Speed)
-		cp.Speed = s.Speed
-		go func() {
-			if err := cp.Execute(); err != nil {
-				errc <- errors.Annotate(err, "Exec#Execute")
-			}
-			errc <- nil
-		}()
-
-		<-cp.Ready
-
-		s.Progress <- ProgressInfo{
-			Name:        cp.Name(),
-			Size:        cp.Size(),
-			ProxyReader: cp.Reader(),
-			Status:      cp.Status(),
-		}
-
-		if err := <-errc; err != nil {
-			if strings.HasSuffix(err.Error(), "would exceed context deadline") {
-				s.logger.C <- LogEntry{
-					Severity:    ERROR,
-					Status:      StatusFailed,
-					FilepathSrc: cp.From,
-					FilepathDst: cp.To,
-				}
-			} else {
-				return err
-			}
-		} else {
+		if err := s.execute(from, to, 3, nil); err != nil {
+			// Ignore returned error; go to next file.
 			s.logger.C <- LogEntry{
-				Severity:    INFO,
-				Status:      cp.Status(),
-				FilepathSrc: cp.From,
-				FilepathDst: cp.To,
+				Severity:    ERROR,
+				Status:      StatusFailed,
+				FilepathSrc: from,
+				FilepathDst: err.Error(),
 			}
 		}
 	}
 	return nil
 }
 
-// Logger returns the Supervisor logger.
-func (s *Supervisor) Logger() *Logger {
-	return s.logger
+func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
+	if retries == 0 {
+		return err2 // keep last error
+	}
+
+	errc := make(chan error)
+	var err error
+
+	ctx, cancel := context.WithTimeout(s.Context, s.ExecTimeout)
+	defer cancel() // FIXME
+
+	cp := NewExecWithContext(ctx, from, to, s.Speed)
+	cp.Speed = s.Speed
+	go func() {
+		if err = cp.Execute(); err != nil {
+			errc <- errors.Annotate(err, "Exec#Execute")
+		}
+		errc <- nil
+	}()
+
+	ready := false
+	terminated := false
+	for {
+		select {
+		case <-cp.Ready:
+			s.Progress <- ProgressInfo{
+				Name:        cp.Name(),
+				Size:        cp.Size(),
+				ProxyReader: cp.Reader(),
+				Status:      cp.Status(),
+			}
+			ready = true
+		case <-ctx.Done():
+			if ctx.Err() != nil {
+				time.Sleep(1 * time.Second)
+				err = s.execute(from, to, retries-1, ctx.Err())
+			}
+
+			terminated = true
+		case err = <-errc:
+			if err != nil {
+				time.Sleep(1 * time.Second)
+				err = s.execute(from, to, retries-1, err)
+			}
+
+			terminated = true
+		}
+
+		if terminated {
+			if !ready {
+				s.Progress <- ProgressInfo{
+					Name:        cp.Name(),
+					Size:        cp.Size(),
+					ProxyReader: cp.Reader(),
+					Status:      StatusFailed,
+				}
+			}
+
+			if err = s.logsOrReturnError(cp, err); err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
+}
+
+func (s *Supervisor) logsOrReturnError(cp *Exec, err error) error {
+	// Succeed
+	if err == nil {
+		s.logger.C <- LogEntry{
+			Severity:    INFO,
+			Status:      cp.Status(),
+			FilepathSrc: cp.From,
+			FilepathDst: cp.To,
+		}
+		return nil
+	}
+	// Failed
+	if err == context.DeadlineExceeded || strings.HasSuffix(err.Error(), "would exceed context deadline") { // first is ctx.Err() and the second is a shapeio.Reder error
+		s.logger.C <- LogEntry{
+			Severity:    ERROR,
+			Status:      StatusFailed,
+			FilepathSrc: cp.From,
+			FilepathDst: cp.To,
+		}
+		return nil
+	}
+
+	// Fatal error
+	return err
 }

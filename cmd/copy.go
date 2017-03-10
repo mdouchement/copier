@@ -97,6 +97,12 @@ func copyAction(c *cli.Context) error {
 		return errors.Annotate(err, "start logger")
 	}
 
+	time.Sleep(1 * time.Second) // Avoid print conflict with progressbar
+	color.Cyan("Copy summary:")
+	for k, v := range supervisor.Summary() {
+		color.Cyan("  - %s: %d", k, v)
+	}
+
 	return nil
 }
 

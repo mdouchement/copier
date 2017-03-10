@@ -22,6 +22,7 @@ type (
 		Speed         float64
 		Retries       int
 		RetryInterval time.Duration
+		summary       map[string]int
 	}
 
 	// ProgressInfo handle data for building a progress bar.
@@ -38,9 +39,15 @@ func NewSupervisor(paths []string, destination string) (*Supervisor, error) {
 	base, err := GetBaseDirectory(paths)
 	ctx := context.Background()
 	return &Supervisor{
-		Context:       ctx,
-		base:          base,
-		logger:        NewLoggerWithContext(ctx),
+		Context: ctx,
+		base:    base,
+		logger:  NewLoggerWithContext(ctx),
+		summary: map[string]int{
+			StatusAlreadyExist: 0,
+			StatusOverwritten:  0,
+			StatusCopied:       0,
+			StatusFailed:       0,
+		},
 		FilePaths:     paths,
 		Destination:   destination,
 		ExecTimeout:   10 * time.Minute,
@@ -54,6 +61,11 @@ func NewSupervisor(paths []string, destination string) (*Supervisor, error) {
 // Logger returns the Supervisor logger.
 func (s *Supervisor) Logger() *Logger {
 	return s.logger
+}
+
+// Summary returns the summary of an execution.
+func (s *Supervisor) Summary() map[string]int {
+	return s.summary
 }
 
 // Execute runs the Supervisor copy batch.
@@ -89,7 +101,7 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 	var err error
 
 	ctx, cancel := context.WithTimeout(s.Context, s.ExecTimeout)
-	defer cancel() // FIXME
+	defer cancel()
 
 	cp := NewExecWithContext(ctx, from, to, s.Speed)
 	cp.Speed = s.Speed
@@ -150,6 +162,7 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 func (s *Supervisor) logsOrReturnError(cp *Exec, err error) error {
 	// Succeed
 	if err == nil {
+		s.summary[cp.Status()]++
 		s.logger.C <- LogEntry{
 			Severity:    INFO,
 			Status:      cp.Status(),
@@ -159,6 +172,7 @@ func (s *Supervisor) logsOrReturnError(cp *Exec, err error) error {
 		return nil
 	}
 	// Failed
+	s.summary[StatusFailed]++
 	if err == context.DeadlineExceeded || strings.HasSuffix(err.Error(), "would exceed context deadline") { // first is ctx.Err() and the second is a shapeio.Reder error
 		s.logger.C <- LogEntry{
 			Severity:    ERROR,

@@ -15,6 +15,7 @@ type (
 		context.Context
 		base          string
 		logger        *Logger
+		summary       map[string]int
 		FilePaths     []string
 		Destination   string
 		ExecTimeout   time.Duration
@@ -22,7 +23,6 @@ type (
 		Speed         float64
 		Retries       int
 		RetryInterval time.Duration
-		summary       map[string]int
 	}
 
 	// ProgressInfo handle data for building a progress bar.

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cheggaaa/pb"
 	"github.com/fatih/color"
@@ -35,6 +36,14 @@ var (
 		&cli.StringFlag{
 			Name:  "timeout",
 			Usage: "Specify the timeout for copy one file (e.g 1h - default: 10m)",
+		},
+		&cli.IntFlag{
+			Name:  "retries",
+			Usage: "Specify the number of copy retries per files (default: 5)",
+		},
+		&cli.StringFlag{
+			Name:  "retry-interval",
+			Usage: "Specify the waiting time between copy attempts (default: 2s)",
 		},
 	}
 )
@@ -72,21 +81,8 @@ func copyAction(c *cli.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "copier.NewSupervisor")
 	}
-
-	if s := c.String("speed"); s != "" {
-		s, err := util.ParseSpeed(s)
-		if err != nil {
-			return err
-		}
-		supervisor.Speed = float64(s)
-	}
-
-	if t := c.String("timeout"); t != "" {
-		timeout, err := util.ParseTimeout(t)
-		if err != nil {
-			return err
-		}
-		supervisor.ExecTimeout = timeout
+	if err := setOptions(c, supervisor); err != nil {
+		return err
 	}
 
 	logfile := filepath.Join(destination, "copier.log")
@@ -101,6 +97,12 @@ func copyAction(c *cli.Context) error {
 		return errors.Annotate(err, "start logger")
 	}
 
+	time.Sleep(1 * time.Second) // Avoid print conflict with progressbar
+	color.Cyan("Copy summary:")
+	for k, v := range supervisor.Summary() {
+		color.Cyan("  - %s: %d", k, v)
+	}
+
 	return nil
 }
 
@@ -110,6 +112,38 @@ func validateCopyOptions(c *cli.Context) error {
 	}
 	if !c.IsSet("from-list") && c.Args().Len() != 2 {
 		return errors.Annotate(errors.New("to many arguments. needs source_directory and target_directory arguments"), "validateCopyOptions")
+	}
+
+	return nil
+}
+
+func setOptions(c *cli.Context, supervisor *copier.Supervisor) error {
+	if s := c.String("speed"); s != "" {
+		s, err := util.ParseSpeed(s)
+		if err != nil {
+			return err
+		}
+		supervisor.Speed = float64(s)
+	}
+
+	if t := c.String("timeout"); t != "" {
+		timeout, err := time.ParseDuration(t)
+		if err != nil {
+			return err
+		}
+		supervisor.ExecTimeout = timeout
+	}
+
+	if r := c.Int("retries"); r > 0 {
+		supervisor.Retries = r
+	}
+
+	if ri := c.String("retry-interval"); ri != "" {
+		interval, err := time.ParseDuration(ri)
+		if err != nil {
+			return err
+		}
+		supervisor.RetryInterval = interval
 	}
 
 	return nil

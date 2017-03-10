@@ -41,6 +41,7 @@ func StartLogger(l *copier.Logger, filename string) error {
 		for {
 			select {
 			case <-l.Done():
+				file.Sync()
 				file.Close()
 				return
 			case entry := <-l.C:

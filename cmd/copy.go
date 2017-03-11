@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -153,6 +154,11 @@ func loadFromFile(filename string) ([]string, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
+	}
+	// Discard BOM
+	switch {
+	case bytes.Equal(data[:3], []byte{0xEF, 0xBB, 0xBF}): // UTF-8
+		data = data[3:]
 	}
 	str := strings.TrimSpace(string(data))
 

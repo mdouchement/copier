@@ -141,7 +141,18 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 		}
 
 		if terminated {
-			if !ready {
+			if !ready && err == nil {
+				// Already exist
+				s.Progress <- ProgressInfo{
+					Name:        cp.Name(),
+					Size:        cp.Size(),
+					ProxyReader: cp.Reader(),
+					Status:      cp.Status(),
+				}
+			}
+
+			if err != nil {
+				// failed
 				s.Progress <- ProgressInfo{
 					Name:        cp.Name(),
 					Size:        cp.Size(),

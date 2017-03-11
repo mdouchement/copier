@@ -170,7 +170,7 @@ func loadFromFile(filename string) ([]string, error) {
 		paths = append(paths, path)
 	}
 
-	return strings.Split(str, util.Newline), nil
+	return paths, nil
 }
 
 func copyProgressBar(s *copier.Supervisor) {

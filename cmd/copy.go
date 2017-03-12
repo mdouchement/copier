@@ -135,7 +135,7 @@ func setOptions(c *cli.Context, supervisor *copier.Supervisor) error {
 		supervisor.ExecTimeout = timeout
 	}
 
-	if r := c.Int("retries"); r > 0 {
+	if r := c.Int("retries"); r >= 0 {
 		supervisor.Retries = r
 	}
 

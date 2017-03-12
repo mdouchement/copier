@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const (
@@ -135,8 +136,10 @@ func MoreRecent(dst, src string) (bool, error) {
 
 // A ProxyReader is proxified reader.
 type ProxyReader struct {
+	m      sync.Mutex
 	reader io.Reader
 	writer io.Writer
+	closed bool
 	c      chan int
 }
 
@@ -151,17 +154,37 @@ func NewProxyReader(r io.Reader) *ProxyReader {
 // Read implements io.Reader
 func (r *ProxyReader) Read(b []byte) (n int, err error) {
 	n, err = r.reader.Read(b)
-	r.c <- n
+
+	if !r.Closed() {
+		r.c <- n
+	}
 	return
 }
 
 // Close the reader when it implements io.Closer
 func (r *ProxyReader) Close() (err error) {
-	if closer, ok := r.reader.(io.Closer); ok {
-		return closer.Close()
+	if r.Closed() {
+		return nil
+	}
+
+	if r.reader != nil {
+		if closer, ok := r.reader.(io.Closer); ok {
+			return closer.Close()
+		}
 	}
 	close(r.c)
+
+	r.m.Lock()
+	defer r.m.Unlock()
+	r.closed = true
 	return
+}
+
+// Closed returns the reader status.
+func (r *ProxyReader) Closed() bool {
+	r.m.Lock()
+	defer r.m.Unlock()
+	return r.closed
 }
 
 // ReadChunk returns the number of read bytes for a chunk.

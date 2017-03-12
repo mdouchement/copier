@@ -93,7 +93,7 @@ func (s *Supervisor) Execute() error {
 }
 
 func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
-	if retries == 0 {
+	if retries < 0 {
 		return err2 // keep last error
 	}
 
@@ -103,7 +103,7 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 	ctx, cancel := context.WithTimeout(s.Context, s.ExecTimeout)
 	defer cancel()
 
-	cp := NewExecWithContext(ctx, from, to, s.Speed)
+	cp := NewExec(from, to, s.Speed)
 	cp.Speed = s.Speed
 	go func() {
 		if err = cp.Execute(); err != nil {
@@ -126,6 +126,7 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 			ready = true
 		case <-ctx.Done():
 			if ctx.Err() != nil {
+				cp.ForceClose()
 				time.Sleep(s.RetryInterval)
 				err = s.execute(from, to, retries-1, ctx.Err())
 			}
@@ -133,6 +134,7 @@ func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
 			terminated = true
 		case err = <-errc:
 			if err != nil {
+				cp.ForceClose()
 				time.Sleep(s.RetryInterval)
 				err = s.execute(from, to, retries-1, err)
 			}

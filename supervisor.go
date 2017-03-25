@@ -92,13 +92,12 @@ func (s *Supervisor) Execute() error {
 	return nil
 }
 
-func (s *Supervisor) execute(from, to string, retries int, err2 error) error {
+func (s *Supervisor) execute(from, to string, retries int, err2 error) (err error) {
 	if retries < 0 {
 		return err2 // keep last error
 	}
 
 	errc := make(chan error)
-	var err error
 
 	ctx, cancel := context.WithTimeout(s.Context, s.ExecTimeout)
 	defer cancel()

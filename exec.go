@@ -12,6 +12,7 @@ import (
 
 // An Exec copies files at a given ratelimit.
 type Exec struct {
+	opened bool
 	size   int64
 	ctx    context.Context
 	r      io.ReadCloser  // input file
@@ -65,6 +66,8 @@ func (e *Exec) Execute() error {
 		e.status = StatusCopied
 	}
 
+	e.opened = true
+
 	e.r, err = os.Open(e.From)
 	if err != nil {
 		return errors.Annotate(err, "source")
@@ -114,6 +117,10 @@ func (e *Exec) Reader() *ProxyReader {
 
 // ForceClose force closes all its IO objects.
 func (e *Exec) ForceClose() {
+	if !e.opened {
+		return
+	}
+
 	e.asyncClose(e.pr)
 	e.asyncClose(e.r)
 	e.asyncClose(e.w)

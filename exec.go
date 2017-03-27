@@ -2,6 +2,7 @@ package copier
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -11,9 +12,12 @@ import (
 
 // An Exec copies files at a given ratelimit.
 type Exec struct {
+	opened bool
 	size   int64
 	ctx    context.Context
-	reader *ProxyReader
+	r      io.ReadCloser  // input file
+	w      io.WriteCloser // output file
+	pr     *ProxyReader
 	From   string
 	To     string
 	Speed  float64
@@ -62,26 +66,29 @@ func (e *Exec) Execute() error {
 		e.status = StatusCopied
 	}
 
-	r, err := os.Open(e.From)
+	e.opened = true
+
+	e.r, err = os.Open(e.From)
 	if err != nil {
 		return errors.Annotate(err, "source")
 	}
-	defer r.Close()
+	defer e.r.Close()
 
 	w, err := os.Create(e.To)
 	if err != nil {
 		return errors.Annotate(err, "destination")
 	}
 	defer w.Close()
+	e.w = w
 
-	rr := shapeio.NewReaderWithContext(r, e.ctx)
+	rr := shapeio.NewReaderWithContext(e.r, e.ctx)
 	rr.SetRateLimit(e.Speed)
 
-	e.reader = NewProxyReader(rr) // Used for progressbar
-	defer e.reader.Close()
+	e.pr = NewProxyReader(rr) // Used for progressbar
+	defer e.pr.Close()
 	e.Ready <- struct{}{}
 
-	if _, err = io.Copy(w, e.reader); err != nil {
+	if _, err = io.Copy(e.w, e.pr); err != nil {
 		return errors.Annotate(err, "copy")
 	}
 
@@ -105,5 +112,23 @@ func (e *Exec) Size() int64 {
 
 // Reader returns the file reader.
 func (e *Exec) Reader() *ProxyReader {
-	return e.reader
+	return e.pr
+}
+
+// ForceClose force closes all its IO objects.
+func (e *Exec) ForceClose() {
+	if !e.opened {
+		return
+	}
+
+	e.asyncClose(e.pr)
+	e.asyncClose(e.r)
+	e.asyncClose(e.w)
+	fmt.Println("Forced close.")
+}
+
+func (e *Exec) asyncClose(c io.Closer) {
+	if c != nil {
+		go c.Close()
+	}
 }
